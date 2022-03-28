@@ -13,10 +13,24 @@ export default NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       const { email } = user;
-      await fauna.query(
-        query.Create(query.Collection("users"), { date: { email } })
-      );
-      return true;
+      try {
+        await fauna.query(
+          query.If(
+            query.Not(
+              query.Exists(
+                query.Match(query.Index("user_by_email"), query.Casefold(email))
+              )
+            ),
+            query.Create(query.Collection("users"), { data: { email: email } }),
+            query.Get(
+              query.Match(query.Index("user_by_email"), query.Casefold(email))
+            )
+          )
+        );
+        return true;
+      } catch {
+        return false;
+      }
     },
   },
 });
